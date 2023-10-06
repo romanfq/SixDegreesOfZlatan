@@ -44,10 +44,10 @@ function teamUrl(country, season, teamHref) {
  * @param {integer} [seed] optionally pass the hash of the previous chunk
  * @returns {integer | string}
  */
-function hashFnv32a(str, asString, seed) {
+function hashFnv32a(str, asString, seed=0x811c9dc5) {
     /*jshint bitwise:false */
     var i, l,
-        hval = (seed === undefined) ? 0x811c9dc5 : seed;
+        hval = seed;
 
     for (i = 0, l = str.length; i < l; i++) {
         hval ^= str.charCodeAt(i);
@@ -109,12 +109,13 @@ async function extractPlayers(teamPage) {
 		// has a single row with the text "Players no longer at this club"
 		// and those rows can be ignored
 		const tds = document.querySelectorAll('div#main table tbody td');
-		const secondSectionIndex = Array.from(tds).findLastIndex(function(e) { 
-			return e.innerText === 'Players no longer at this club';
+		const secondSectionIndex = Array.from(tds).findIndex(function(e) { 
+			return (e as HTMLElement).innerText === 'Players no longer at this club';
 		});
 		console.log(secondSectionIndex);
 		return Array.from(tds)
-				.filter((td, index) => index > 1 && index % 9 === 1 && index < secondSectionIndex)
+				.map((td) => td as HTMLElement)
+				.filter((_, index) => index > 1 && index % 9 === 1 && index < secondSectionIndex)
 				.filter(td => td.innerText.trim() !== '')
 				.map((td,index) => {
 						return td.innerText;
@@ -133,7 +134,7 @@ async function extractPlayers(teamPage) {
   const teams = await findTeams(leaguePage);
   
   for (var team of teams) {
-  	 console.log('===== %s ========', team.name);
+  	 console.log('===== %s =====', team.name);
   	 const teamPage = await openTeamPage(browser, teamUrl(country, season, team.href));
   	 const players = await extractPlayers(teamPage);
   	 for (var player of players) {
