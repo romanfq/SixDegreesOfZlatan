@@ -1,25 +1,11 @@
-const puppeteer = require('puppeteer');
-const readline = require('readline-sync');
+
+import * as puppeteer from 'puppeteer';
+import * as readline from 'readline-sync';
+
+import { getLeagueNames, Season } from "./types/data-structures.js"
+
 const baseUrl = 'http://www.footballsquads.co.uk'
 
-
-function getLeagueName(country, year) {
-   if (country === "eng") {
-   			// there's a change of name in footballsquads.co.uk :-(
-   		if (year < 2018) { 
-   			return "faprem";
-   		} else {
-   			return "engprem";
-   		}
-   }
-   
-   // by default, the league names are fixed by the following table
-   const countryToLeagueName = {
-	'spain': 'spalali',
-	'eng': 'engprem'
-   };
-   return countryToLeagueName[country];
-}
 
 function seasonName(year) {
 	return year + "-" + (year + 1);
@@ -63,12 +49,12 @@ function hashFnv32a(str, asString, seed=0x811c9dc5) {
 async function loadSeason(country, year) {
  // Launch the browser and open a new blank page
   const browser = await puppeteer.launch({
-  	headless: 'false',
+  	headless: 'new',
   	slowMo: 100
   });
   const page = await browser.newPage();
 
-  const leagueName = getLeagueName(country, year);
+  const leagueName = getLeagueNames(country, new Season(year));
   const season = seasonName(year);
   
   // Navigate the page to a URL
