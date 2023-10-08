@@ -2,22 +2,9 @@
 import * as puppeteer from 'puppeteer';
 import * as readline from 'readline-sync';
 
-import { getLeagueNames, Season } from "./types/data-structures.js"
+import { Countries, Season, Team, getLeagues, enumFromValue } from "./types/data-structures.js"
 
 const baseUrl = 'http://www.footballsquads.co.uk'
-
-
-function seasonName(year) {
-	return year + "-" + (year + 1);
-}
-
-function leagueUrl(country, season, leagueName) {
-	return baseUrl + "/" + country + "/" + season + "/" + leagueName + ".htm";
-}
-
-function teamUrl(country, season, teamHref) {
-	return baseUrl + "/" + country + "/" + season + "/" + teamHref;
-}
 
 /**
  * Calculate a 32 bit FNV-1a hash
@@ -46,19 +33,18 @@ function hashFnv32a(str, asString, seed=0x811c9dc5) {
     return hval >>> 0;
 }
 
-async function loadSeason(country, year) {
+async function loadSeason(country: Countries, season: Season) {
  // Launch the browser and open a new blank page
   const browser = await puppeteer.launch({
   	headless: 'new',
   	slowMo: 100
   });
   const page = await browser.newPage();
-
-  const leagueName = getLeagueNames(country, new Season(year));
-  const season = seasonName(year);
-  
-  // Navigate the page to a URL
-  await page.goto(leagueUrl(country, season, leagueName));
+  const leagues = getLeagues(country, season);
+  for (var league of leagues) {
+	// Navigate the page to a URL
+	await page.goto(league.url(baseUrl));
+  }
   
   return [browser, page];
 }
@@ -103,7 +89,7 @@ async function extractPlayers(teamPage) {
 				.map((td) => td as HTMLElement)
 				.filter((_, index) => index > 1 && index % 9 === 1 && index < secondSectionIndex)
 				.filter(td => td.innerText.trim() !== '')
-				.map((td,index) => {
+				.map((td,_) => {
 						return td.innerText;
 					});	
 	});
@@ -112,16 +98,19 @@ async function extractPlayers(teamPage) {
 
 (async () => {
 
-  var country = readline.question(`What country? `);
+  var countryName = readline.question(`What country? `);
   var year = parseInt(readline.question(`What year? `));
-  const season = seasonName(year);
 
-  const [browser, leaguePage] = await loadSeason(country, year);
+  const season = new Season(year);
+  const country: Countries = enumFromValue(countryName, Countries);
+
+  const [browser, leaguePage] = await loadSeason(country, season);
   const teams = await findTeams(leaguePage);
   
-  for (var team of teams) {
-  	 console.log('===== %s =====', team.name);
-  	 const teamPage = await openTeamPage(browser, teamUrl(country, season, team.href));
+  for (var teamData of teams) {
+	 const team = new Team(country, season, teamData.name, teamData.href)
+	 console.log('===== %s =====', team);
+  	 const teamPage = await openTeamPage(browser, team.url(baseUrl));
   	 const players = await extractPlayers(teamPage);
   	 for (var player of players) {
   	 	console.log(player + ":" + hashFnv32a(player, true));

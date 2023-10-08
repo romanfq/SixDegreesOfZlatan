@@ -24,6 +24,52 @@ export class Season {
     }
 }
 
+export class League {
+    private readonly _country: Countries;
+    private readonly _leagueName: string;
+    private readonly _season: Season;
+
+    constructor(country: Countries, leagueName: string, season: Season) {
+        this._country = country;
+        this._leagueName = leagueName;
+        this._season = season;
+    }
+
+    public get country() : Countries {
+        return this._country;
+    }
+
+    public get name() : string {
+        return this._leagueName;
+    }
+    
+    public url(baseUrl: string) : string {
+        return baseUrl + "/" + this._country + "/" + this._season.toString() + "/" + this._leagueName + ".htm";
+    }   
+}
+
+export class Team {
+    private readonly _country: Countries;
+    private readonly _season: Season;
+    private readonly _teamName: string;
+    private readonly _teamHref: string;
+
+    constructor(country: Countries, season: Season, teamName: string, teamHref: string) {
+        this._country = country;
+        this._season = season;
+        this._teamName = teamName;
+        this._teamHref = teamHref;
+    }
+
+    public url(baseUrl: string): string {
+        return baseUrl + "/" + this._country + "/" + this._season.toString() + "/" + this._teamHref;
+    }
+
+    public toString() {
+        return this._teamName;
+    }
+}
+
 export class ScrappingNode {
     private readonly _leagueName: string;
     private readonly _season: Season;
@@ -86,12 +132,18 @@ export enum Countries {
     MEXICO="mexico"
 }
 
+export const enumFromValue = <T extends Record<string, string>>(val: string, _enum: T) => {
+    const enumName = (Object.keys(_enum) as Array<keyof T>).find(k => _enum[k] === val)
+    if (!enumName) throw Error() // here fail fast as an example
+    return _enum[enumName]
+}
+
 /**
  * These are the leagues as known in http://www.footballsquads.co.uk/
  * Note that the Premier League was known as the FA Premier prior to 2018
  * as per that website, so some name change applies
  */
-export enum Leagues {
+export enum LeagueNames {
     // England
     PREMIER_LEAGUE="engprem",
 
@@ -139,51 +191,29 @@ export enum Leagues {
     MEXICO_CLAUSURA="mexclaus"
 }
 
-export function getLeagueNames(country: Countries, season: Season): Array<string> {
+export function getLeagues(country: Countries, season: Season): Array<League> {
     // there's a change of name in footballsquads.co.uk :-(
     if (country == Countries.ENGLAND && season.startYear < 2018) {
-        return ["faprem"];
+        return [new League(Countries.ENGLAND, "faprem", season)];
     }
 
-    const countryToLeagueName: Record<Countries, Leagues[]> = {
-        [Countries.ENGLAND]: [Leagues.PREMIER_LEAGUE],
-        [Countries.SPAIN]: [Leagues.LA_LIGA],
-        [Countries.ITALY]: [Leagues.SERIE_A],
-        [Countries.GERMANY]: [Leagues.BUNDESLIGA],
-        [Countries.FRANCE]: [Leagues.LEAGUE_ONE],
-        [Countries.NETHERLANDS]: [Leagues.EREDIVISIE],
-        [Countries.SCOTLAND]: [Leagues.SCOTTISH_PREMIERSHIP],
-        [Countries.PORTUGAL]: [Leagues.PRIMEIRA_LIGA],
-        [Countries.BELGIUM]: [Leagues.EERSTE_KLASSE_A],
-        [Countries.TURKEY]: [Leagues.TURKEY_SUPER_LIG],
-        [Countries.GREECE]: [Leagues.GREECE_SUPER_LEAGUE],
-        [Countries.BRAZIL]: [Leagues.BRAZIL_SERIE_A],
-        [Countries.ARGENTINA]: [Leagues.ARGENTINA_PRIMERA_DIVISION],
-        [Countries.USA]: [Leagues.MLS],
-        [Countries.MEXICO]: [Leagues.MEXICO_APERTURA, Leagues.MEXICO_CLAUSURA],
+    const countryToLeagueName: Record<Countries, LeagueNames[]> = {
+        [Countries.ENGLAND]: [LeagueNames.PREMIER_LEAGUE],
+        [Countries.SPAIN]: [LeagueNames.LA_LIGA],
+        [Countries.ITALY]: [LeagueNames.SERIE_A],
+        [Countries.GERMANY]: [LeagueNames.BUNDESLIGA],
+        [Countries.FRANCE]: [LeagueNames.LEAGUE_ONE],
+        [Countries.NETHERLANDS]: [LeagueNames.EREDIVISIE],
+        [Countries.SCOTLAND]: [LeagueNames.SCOTTISH_PREMIERSHIP],
+        [Countries.PORTUGAL]: [LeagueNames.PRIMEIRA_LIGA],
+        [Countries.BELGIUM]: [LeagueNames.EERSTE_KLASSE_A],
+        [Countries.TURKEY]: [LeagueNames.TURKEY_SUPER_LIG],
+        [Countries.GREECE]: [LeagueNames.GREECE_SUPER_LEAGUE],
+        [Countries.BRAZIL]: [LeagueNames.BRAZIL_SERIE_A],
+        [Countries.ARGENTINA]: [LeagueNames.ARGENTINA_PRIMERA_DIVISION],
+        [Countries.USA]: [LeagueNames.MLS],
+        [Countries.MEXICO]: [LeagueNames.MEXICO_APERTURA, LeagueNames.MEXICO_CLAUSURA],
     }
 
-    return countryToLeagueName[country].map(l => l.toString());
+    return countryToLeagueName[country].map(l => new League(country, l, season));
 }
-
-/* 
-
-function getLeagueName(country, year) {
-   if (country === "eng") {
-   			
-   		if (year < 2018) { 
-   			return "faprem";
-   		} else {
-   			return "engprem";
-   		}
-   }
-   
-   // by default, the league names are fixed by the following table
-   const countryToLeagueName = {
-	'spain': 'spalali',
-	'eng': 'engprem'
-   };
-   return countryToLeagueName[country];
-}
-
-*/
