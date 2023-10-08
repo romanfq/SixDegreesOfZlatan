@@ -2,62 +2,30 @@
 import * as puppeteer from 'puppeteer';
 import * as readline from 'readline-sync';
 
-import { Countries, Season, Team, getLeagues, enumFromValue } from "./types/data-structures.js"
+import { Countries, Season, Team, enumFromValue, Player } from "./types/data-structures.js"
+import { bfsWalk } from './traversal.js';
 
 const baseUrl = 'http://www.footballsquads.co.uk'
 
-/**
- * Calculate a 32 bit FNV-1a hash
- * Found here: https://gist.github.com/vaiorabbit/5657561
- * Ref.: http://isthe.com/chongo/tech/comp/fnv/
- *
- * @param {string} str the input value
- * @param {boolean} [asString=false] set to true to return the hash value as 
- *     8-digit hex string instead of an integer
- * @param {integer} [seed] optionally pass the hash of the previous chunk
- * @returns {integer | string}
- */
-function hashFnv32a(str, asString, seed=0x811c9dc5) {
-    /*jshint bitwise:false */
-    var i, l,
-        hval = seed;
 
-    for (i = 0, l = str.length; i < l; i++) {
-        hval ^= str.charCodeAt(i);
-        hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
-    }
-    if( asString ){
-        // Convert to 8 digit hex string
-        return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
-    }
-    return hval >>> 0;
-}
-
-async function loadSeason(country: Countries, season: Season) {
+async function launchBrowser() {
  // Launch the browser and open a new blank page
   const browser = await puppeteer.launch({
   	headless: 'new',
   	slowMo: 100
   });
-  const page = await browser.newPage();
-  const leagues = getLeagues(country, season);
-  for (var league of leagues) {
-	// Navigate the page to a URL
-	await page.goto(league.url(baseUrl));
-  }
-  
-  return [browser, page];
+  return browser;
 }
 
-async function findTeams(leaguePage) {
+async function scrapeTeams(leaguePage: puppeteer.Page): Promise<{href: string, name: string}[]> {
 	// Set screen size
   await leaguePage.setViewport({width: 1080, height: 1024});
 
-  const elements = await leaguePage.$$eval('div#main h5 a', elements => {
-    return elements.map(
+  const elements = await leaguePage.$$eval('div#main h5 a', e => {
+    return e.map(
     			element => { return {
-    				 'href': element.getAttribute('href'), 
-    				 'name': element.textContent
+    				 href: element.getAttribute('href'), 
+    				 name: element.textContent
     				};
     			}
     	  );
@@ -66,13 +34,7 @@ async function findTeams(leaguePage) {
   return elements;
 }
 
-async function openTeamPage(browser, teamPageUrl) {
-	const childPage = await browser.newPage();
-  	await childPage.goto(teamPageUrl);
-  	return childPage;
-}
-
-async function extractPlayers(teamPage) {
+async function scrapePlayers(teamPage: puppeteer.Page): Promise<Array<Player>> {
 	const players = await teamPage.evaluate(() => {
 		// The players table has 9 columns, and the 1st column is the number, the second the name
 		// If we put each cell one after the other, the player name is always
@@ -93,29 +55,34 @@ async function extractPlayers(teamPage) {
 						return td.innerText;
 					});	
 	});
-	return players;
+	
+	return players.map(name => new Player(name));
+}
+
+async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: string) {
+    const teamPageUrl = team.url(baseUrl);
+	const childPage = await browser.newPage();
+  	await childPage.goto(teamPageUrl);
+  	return childPage;
 }
 
 (async () => {
 
   var countryName = readline.question(`What country? `);
-  var year = parseInt(readline.question(`What year? `));
+  var startYear = parseInt(readline.question(`Start at what season? `));
+  var endYear = parseInt(readline.question(`End at what season? `));
 
-  const season = new Season(year);
+  const startSeason = new Season(startYear);
+  const endSeason = new Season(endYear);
   const country: Countries = enumFromValue(countryName, Countries);
 
-  const [browser, leaguePage] = await loadSeason(country, season);
-  const teams = await findTeams(leaguePage);
-  
-  for (var teamData of teams) {
-	 const team = new Team(country, season, teamData.name, teamData.href)
-	 console.log('===== %s =====', team);
-  	 const teamPage = await openTeamPage(browser, team.url(baseUrl));
-  	 const players = await extractPlayers(teamPage);
-  	 for (var player of players) {
-  	 	console.log(player + ":" + hashFnv32a(player, true));
-  	 }
-  }
-
-  await browser.close();
+  await bfsWalk(
+			baseUrl, 
+			startSeason, 
+			endSeason,
+			[country],
+			launchBrowser,
+			scrapeTeams,
+			launchTeamPage,
+			scrapePlayers);
 })(); 

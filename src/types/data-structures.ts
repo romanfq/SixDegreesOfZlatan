@@ -1,9 +1,3 @@
-export enum ScrappingNodeType {
-    LEAGUE,
-    LEAGUE_AND_SEASON,
-    LEAGUE_SEASON_AND_TEAM
-}
-
 export class Season {
     private readonly _startYear: number;
 
@@ -22,6 +16,10 @@ export class Season {
     public next(): Season {
         return new Season(this._startYear + 1);
     }
+
+    public equals(other: Season) {
+        return this.startYear === other.startYear;
+    }
 }
 
 export class League {
@@ -39,6 +37,10 @@ export class League {
         return this._country;
     }
 
+    public get season() : Season {
+        return this._season;
+    }
+    
     public get name() : string {
         return this._leagueName;
     }
@@ -66,52 +68,13 @@ export class Team {
     }
 
     public toString() {
-        return this._teamName;
-    }
-}
-
-export class ScrappingNode {
-    private readonly _leagueName: string;
-    private readonly _season: Season;
-    private readonly _teamName: string;
-    private readonly _nodeType : ScrappingNodeType;
-
-    constructor(leagueName: string, 
-                season: Season = undefined,
-                teamName: string = undefined) {
-        this._leagueName = leagueName;
-        this._season = season;
-        this._teamName = teamName;
-
-        if (season === undefined) {
-            this._nodeType = ScrappingNodeType.LEAGUE;
-            return;
-        } 
-
-        if (teamName === undefined) {
-            this._nodeType = ScrappingNodeType.LEAGUE_AND_SEASON;
-            return;
-        }
-        
-        this._nodeType = ScrappingNodeType.LEAGUE_SEASON_AND_TEAM;
-
-    }
-    
-    public get leagueName() : string {
-        return this._leagueName;
+        return this._teamName + "(" + this.season.toString() + ")";
     }
 
-    public get season(): Season {
+    public get season() : Season {
         return this._season;
     }
-
-    public get teamName() : string {
-        return this._teamName;
-    }
-
-    public get nodeType(): ScrappingNodeType {
-        return this._nodeType;
-    }
+    
 }
 
 export enum Countries {
@@ -216,4 +179,86 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
     }
 
     return countryToLeagueName[country].map(l => new League(country, l, season));
+}
+
+export class Player {
+    private readonly _name: string;
+    private readonly _id: string | number;
+    private readonly _teams: Array<Team>;
+
+    constructor(name: string) {
+        this._name = name;
+        this._id = this.hashFnv32a(name, true);
+        this._teams = new Array();
+    }
+    
+    public get name() : string {
+        return this._name;
+    }
+
+    public get identifier(): string | number {
+        return this._id;
+    }
+    
+    public addTeam(t: Team) {
+        this._teams.push(t);
+    }
+    
+    public get teams() : Array<Team> {
+        return this._teams;
+    }
+
+    /**
+     * Calculate a 32 bit FNV-1a hash
+     * Found here: https://gist.github.com/vaiorabbit/5657561
+     * Ref.: http://isthe.com/chongo/tech/comp/fnv/
+     *
+     * @param {string} str the input value
+     * @param {boolean} [asString=false] set to true to return the hash value as 
+     *     8-digit hex string instead of an integer
+     * @param {integer} [seed] optionally pass the hash of the previous chunk
+     * @returns {integer | string}
+     */
+    private hashFnv32a(str, asString, seed=0x811c9dc5) {
+        /*jshint bitwise:false */
+        var i, l,
+            hval = seed;
+
+        for (i = 0, l = str.length; i < l; i++) {
+            hval ^= str.charCodeAt(i);
+            hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
+        }
+        if( asString ){
+            // Convert to 8 digit hex string
+            return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
+        }
+        return hval >>> 0;
+    }
+
+    public toString() {
+        return this.name + "(" + this.identifier + "). Teams: " + this.teams.toString();
+    }
+}
+
+export class PlayerSet {
+
+    private _items: Map<string | number, Player>;
+
+    constructor() {
+        this._items = new Map<string | number, Player>();
+    }
+
+    public add(player: Player): Player {
+        const id = player.identifier;
+        var existingPlayer = this._items.get(id);
+        if (existingPlayer === undefined) {
+            this._items.set(id, player);
+            return player;
+        }
+        return existingPlayer;
+    }
+
+    public values(): IterableIterator<Player> {
+        return this._items.values()
+    }
 }
