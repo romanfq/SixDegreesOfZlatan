@@ -107,7 +107,6 @@ async function findPlayersInTeamPage(
     for (var player of players) {
         var playerWithTeam = result.add(player);
         playerWithTeam.addTeam(team);
-        console.log("%s", playerWithTeam);
     }
 }
 

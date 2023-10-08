@@ -76,7 +76,7 @@ async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: s
   const endSeason = new Season(endYear);
   const country: Countries = enumFromValue(countryName, Countries);
 
-  await bfsWalk(
+  var playerSet = await bfsWalk(
 			baseUrl, 
 			startSeason, 
 			endSeason,
@@ -85,4 +85,7 @@ async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: s
 			scrapeTeams,
 			launchTeamPage,
 			scrapePlayers);
+	for (var player of playerSet.values()) {
+		console.log(player);
+	}
 })(); 

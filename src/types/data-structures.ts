@@ -55,12 +55,14 @@ export class Team {
     private readonly _season: Season;
     private readonly _teamName: string;
     private readonly _teamHref: string;
+    private readonly _players: Array<Player>;
 
     constructor(country: Countries, season: Season, teamName: string, teamHref: string) {
         this._country = country;
         this._season = season;
         this._teamName = teamName;
         this._teamHref = teamHref;
+        this._players = new Array();
     }
 
     public url(baseUrl: string): string {
@@ -75,6 +77,9 @@ export class Team {
         return this._season;
     }
     
+    public add(player: Player) {
+        this._players.push(player);
+    }
 }
 
 export enum Countries {
@@ -202,6 +207,7 @@ export class Player {
     
     public addTeam(t: Team) {
         this._teams.push(t);
+        t.add(this);
     }
     
     public get teams() : Array<Team> {
@@ -259,6 +265,6 @@ export class PlayerSet {
     }
 
     public values(): IterableIterator<Player> {
-        return this._items.values()
+        return this._items.values();
     }
 }
