@@ -4,6 +4,7 @@ import * as readline from 'readline-sync';
 
 import { Countries, Season, Team, enumFromValue, Player } from "./types/data-structures.js"
 import { bfsWalk } from './traversal.js';
+import { PlayerCache } from './cache/fs-cache.js';
 
 const baseUrl = 'http://www.footballsquads.co.uk'
 
@@ -67,6 +68,9 @@ async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: s
 }
 
 (async () => {
+ 
+  var playerCache = new PlayerCache();
+  await playerCache.init();
 
   var countryName = readline.question(`What country? `);
   var startYear = parseInt(readline.question(`Start at what season? `));
@@ -81,6 +85,7 @@ async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: s
 			startSeason, 
 			endSeason,
 			[country],
+			playerCache,
 			launchBrowser,
 			scrapeTeams,
 			launchTeamPage,

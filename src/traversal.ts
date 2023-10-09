@@ -1,4 +1,5 @@
 import { Browser, Page } from "puppeteer";
+import { PlayerCache } from "./cache/fs-cache.js";
 import { 
     Countries, 
     League, 
@@ -23,6 +24,7 @@ import {
 
 export enum ScrappingNodeType {
     LEAGUE,
+    END_OF_LEAGUE_MARKER,
     LEAGUE_AND_TEAM
 }
 
@@ -31,11 +33,16 @@ export class ScrappingNode {
     private readonly _team: Team;
     private readonly _nodeType: ScrappingNodeType;
 
-    constructor(league: League, team: Team = undefined) {
+    constructor(league: League, endOfLeagueMarker: boolean = false, team: Team = undefined) {
         this._league = league;
         this._team = team;
         if (team === undefined) {
-            this._nodeType = ScrappingNodeType.LEAGUE;
+            if (endOfLeagueMarker) {
+                this._nodeType = ScrappingNodeType.END_OF_LEAGUE_MARKER;
+            } 
+            else {
+                this._nodeType = ScrappingNodeType.LEAGUE;
+            }
         } else {
             this._nodeType = ScrappingNodeType.LEAGUE_AND_TEAM;
         }
@@ -59,6 +66,7 @@ export async function bfsWalk(
     startSeason: Season,
     endSeason: Season,
     countries: Array<Countries>,
+    playerCache: PlayerCache,
     launchBrowser: () => Promise<Browser>,
     scrapeTeams: (p: Page) => Promise<{href: string, name: string}[]>,
     launchTeamPage: (browser: Browser, team: Team, baseUrl: string) => Promise<Page>,
@@ -80,11 +88,17 @@ export async function bfsWalk(
             var currentNode = queue.pop();
             switch(currentNode.nodeType) {
                 case ScrappingNodeType.LEAGUE:
-                    await addScrappingJobForLeagueTeams(currentNode.league, browser, baseUrl, scrapeTeams, queue);
+                    await playerCache.initLeagueDir(currentNode.league);
+                    await addScrappingJobForLeagueTeams(currentNode.league, browser, baseUrl, scrapeTeams, playerCache, queue);
+                    break;
+                
+                case ScrappingNodeType.END_OF_LEAGUE_MARKER:
+                    await playerCache.markLeagueDir(currentNode.league);
                     break;
                     
                 case ScrappingNodeType.LEAGUE_AND_TEAM:
-                    await findPlayersInTeamPage(currentNode.team, launchTeamPage, browser, baseUrl, scrapePlayers, result);
+                    await playerCache.initTeamDir(currentNode.team);
+                    await findPlayersInTeamPage(currentNode.team, launchTeamPage, browser, baseUrl, scrapePlayers, playerCache, result);
                     break;
             }
         }
@@ -99,14 +113,20 @@ async function findPlayersInTeamPage(
     team: Team, 
     launchTeamPage: (browser: Browser, team: Team, baseUrl: string) => Promise<Page>, 
     browser: Browser, baseUrl: string, 
-    scrapePlayers: (p: Page) => Promise<Array<Player>>, 
+    scrapePlayers: (p: Page) => Promise<Array<Player>>,
+    playerCache: PlayerCache,
     result: PlayerSet) {
-    console.log("=== %s ====", team);
-    const teamPage: Page = await launchTeamPage(browser, team, baseUrl);
-    const players: Array<Player> = await scrapePlayers(teamPage);
-    for (var player of players) {
-        var playerWithTeam = result.add(player);
-        playerWithTeam.addTeam(team);
+    if (!await playerCache.hasTeamData(team)) {
+        console.log("=== %s ====", team);
+        const teamPage: Page = await launchTeamPage(browser, team, baseUrl);
+        const players: Array<Player> = await scrapePlayers(teamPage);
+        for (var player of players) {
+            var playerWithTeam = result.add(player);
+            playerWithTeam.addTeam(team);
+        }
+        await playerCache.store(team, players);
+    } else {
+        console.info("Data for %s already cached...", team.toString());
     }
 }
 
@@ -114,9 +134,14 @@ async function addScrappingJobForLeagueTeams(
                         league: League, 
                         browser: Browser, 
                         baseUrl: string, 
-                        scrapeTeams: (p: Page) => Promise<{ href: string; name: string; }[]>, 
+                        scrapeTeams: (p: Page) => Promise<{ href: string; name: string; }[]>,
+                        playerCache: PlayerCache, 
                         queue: ScrappingNode[]) {
-    const country = league.country;
+    if (await playerCache.hasLeagueData(league)) {
+        console.info("Data for %s is already cached", league.name + "(" + league.season.toString() + ")");
+        return;
+    }
+
     const season = league.season;
 
     // find all the teams for that league on the
@@ -130,9 +155,12 @@ async function addScrappingJobForLeagueTeams(
 
     // add a scraping job for each team
     for (var teamData of teams) {
-        const team = new Team(country, season, teamData.name, teamData.href);
-        queue.push(new ScrappingNode(league, team));
+        const team = new Team(league, season, teamData.name, teamData.href);
+        queue.push(new ScrappingNode(league, false, team));
     }
+
+    // this node is used to "mark" the whole league as scrapped
+    queue.push(new ScrappingNode(league, true));
 }
 
 function pushSeasonScrapingNode(season: Season, countries: Array<Countries>, queue: Array<ScrappingNode>) {

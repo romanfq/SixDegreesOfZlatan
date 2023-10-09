@@ -47,18 +47,18 @@ export class League {
     
     public url(baseUrl: string) : string {
         return baseUrl + "/" + this._country + "/" + this._season.toString() + "/" + this._leagueName + ".htm";
-    }   
+    }
 }
 
 export class Team {
-    private readonly _country: Countries;
+    private readonly _league: League;
     private readonly _season: Season;
     private readonly _teamName: string;
     private readonly _teamHref: string;
     private readonly _players: Array<Player>;
 
-    constructor(country: Countries, season: Season, teamName: string, teamHref: string) {
-        this._country = country;
+    constructor(league: League, season: Season, teamName: string, teamHref: string) {
+        this._league = league;
         this._season = season;
         this._teamName = teamName;
         this._teamHref = teamHref;
@@ -66,16 +66,24 @@ export class Team {
     }
 
     public url(baseUrl: string): string {
-        return baseUrl + "/" + this._country + "/" + this._season.toString() + "/" + this._teamHref;
+        return baseUrl + "/" + this._league.country + "/" + this._season.toString() + "/" + this._teamHref;
     }
 
     public toString() {
         return this._teamName + "(" + this.season.toString() + ")";
     }
 
+    public get league() : League {
+        return this._league;
+    }
+
     public get season() : Season {
         return this._season;
     }
+
+    public get name() : string {
+        return this._teamName;
+    }    
     
     public add(player: Player) {
         this._players.push(player);
