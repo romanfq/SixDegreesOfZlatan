@@ -1,8 +1,10 @@
 export class Season {
     private readonly _startYear: number;
+    private readonly _isSingleYearSeason: boolean;
 
-    constructor(startYear: number) {
+    constructor(startYear: number, isSingleYearSeason: boolean = false) {
         this._startYear = startYear;
+        this._isSingleYearSeason = isSingleYearSeason;
     }
 
     public get startYear() : number {
@@ -10,6 +12,9 @@ export class Season {
     }
 
     public toString(): string {
+        if (this._isSingleYearSeason) {
+            return `${this._startYear}`;
+        }
         return `${this._startYear}-${this._startYear + 1}`;
     }
 
@@ -19,6 +24,10 @@ export class Season {
 
     public equals(other: Season) {
         return this.startYear === other.startYear;
+    }
+
+    public asSingleYearSeason(): Season {
+        return new Season(this.startYear, true);
     }
 }
 
@@ -94,18 +103,10 @@ export enum Countries {
     ENGLAND="eng",
     SPAIN="spain",
     ITALY="italy",
-    GERMANY="ger",
     FRANCE="france",
     NETHERLANDS="netherl",
-    SCOTLAND="scots",
-    PORTUGAL="portugal",
-    BELGIUM="belgium",
-    TURKEY="turkey",
-    GREECE="greece",
-    BRAZIL="brazil",
-    ARGENTINA="arg",
     USA="usa",
-    MEXICO="mexico"
+    SWEDEN="sweden"
 }
 
 export const enumFromValue = <T extends Record<string, string>>(val: string, _enum: T) => {
@@ -156,39 +157,63 @@ export enum LeagueNames {
     // Brazil
     BRAZIL_SERIE_A="bracamp",
 
-    // Argentina
-    ARGENTINA_PRIMERA_DIVISION="argprim",
-
     // USA
-    MLS="usamls",
+    MLS="usamsl",
 
     // Mexico
     MEXICO_APERTURA="mexaper",
-    MEXICO_CLAUSURA="mexclaus"
+    MEXICO_CLAUSURA="mexclaus",
+
+    // Sweden
+    SWEDEN_SWEDALLS="swedalls"
 }
 
 export function getLeagues(country: Countries, season: Season): Array<League> {
+    // leagues started at different moments
+    var leaguesStart = new Map<Countries, number>([
+        [Countries.ENGLAND, 1993],
+        [Countries.SPAIN, 1995],
+        [Countries.ITALY, 1995],
+        [Countries.FRANCE, 1998],
+        [Countries.NETHERLANDS, 2001],
+        [Countries.USA, 2001],
+        [Countries.SWEDEN, 2005]
+    ]);
+
+    if (leaguesStart.get(country) > season.startYear) {
+        return [];
+    }
+
     // there's a change of name in footballsquads.co.uk :-(
-    if (country == Countries.ENGLAND && season.startYear < 2018) {
-        return [new League(Countries.ENGLAND, "faprem", season)];
+    var nameChanges = new Map<[Countries, number], string>([
+        [[Countries.ENGLAND, 2018], "faprem"],
+        [[Countries.FRANCE, 2002], "fradiv1"],
+        [[Countries.NETHERLANDS, 2011], "holere"]
+    ]);
+
+    for (var [[changedCountry, thresholdYear], newName] of nameChanges.entries()) {
+        if (country === changedCountry && season.startYear < thresholdYear) {
+            return [new League(country, newName , season)]
+        }
     }
 
     const countryToLeagueName: Record<Countries, LeagueNames[]> = {
         [Countries.ENGLAND]: [LeagueNames.PREMIER_LEAGUE],
         [Countries.SPAIN]: [LeagueNames.LA_LIGA],
         [Countries.ITALY]: [LeagueNames.SERIE_A],
-        [Countries.GERMANY]: [LeagueNames.BUNDESLIGA],
         [Countries.FRANCE]: [LeagueNames.LEAGUE_ONE],
         [Countries.NETHERLANDS]: [LeagueNames.EREDIVISIE],
-        [Countries.SCOTLAND]: [LeagueNames.SCOTTISH_PREMIERSHIP],
-        [Countries.PORTUGAL]: [LeagueNames.PRIMEIRA_LIGA],
-        [Countries.BELGIUM]: [LeagueNames.EERSTE_KLASSE_A],
-        [Countries.TURKEY]: [LeagueNames.TURKEY_SUPER_LIG],
-        [Countries.GREECE]: [LeagueNames.GREECE_SUPER_LEAGUE],
-        [Countries.BRAZIL]: [LeagueNames.BRAZIL_SERIE_A],
-        [Countries.ARGENTINA]: [LeagueNames.ARGENTINA_PRIMERA_DIVISION],
+        
         [Countries.USA]: [LeagueNames.MLS],
-        [Countries.MEXICO]: [LeagueNames.MEXICO_APERTURA, LeagueNames.MEXICO_CLAUSURA],
+        [Countries.SWEDEN]: []
+    }
+
+    // Some leagues use a single-year season nomenclature (e.g. MLS)
+    switch(country) {
+        case Countries.USA:
+        case Countries.SWEDEN:
+            season = season.asSingleYearSeason();
+            break;
     }
 
     return countryToLeagueName[country].map(l => new League(country, l, season));

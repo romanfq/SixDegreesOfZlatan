@@ -75,6 +75,8 @@ export class PlayerCache {
     }
 
     private teamPath(team: Team): string {
-        return path.join(this.leaguePath(team.league), team.name.replace(/\s/g, '-'));
+        var teamPath = path.join(this.leaguePath(team.league), team.name.replace(/\s/g, '-').replace(/\//g,'-'));
+        console.log(teamPath);
+        return teamPath;
     }
 }

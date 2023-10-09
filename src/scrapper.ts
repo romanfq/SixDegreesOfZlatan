@@ -1,13 +1,12 @@
 
 import * as puppeteer from 'puppeteer';
-import * as readline from 'readline-sync';
 
-import { Countries, Season, Team, enumFromValue, Player } from "./types/data-structures.js"
+import { Countries, Season, Team, Player } from "./types/data-structures.js"
 import { bfsWalk } from './traversal.js';
 import { PlayerCache } from './cache/fs-cache.js';
 import MersenneTwister from 'mersennetwister';
 
-const baseUrl = 'http://www.footballsquads.co.uk'
+const baseUrl = 'https://www.footballsquads.co.uk'
 
 async function launchBrowser() {
  // Launch the browser and open a new blank page
@@ -91,29 +90,34 @@ const delay = async (min: number, max: number): Promise<boolean> => {
 }
 
 (async () => {
- 
-  var playerCache = new PlayerCache();
-  await playerCache.init();
+	var playerCache = new PlayerCache();
+	await playerCache.init();
 
-  var countryName = readline.question(`What country? `);
-  var startYear = parseInt(readline.question(`Start at what season? `));
-  var endYear = parseInt(readline.question(`End at what season? `));
+	var startYear = 1999;
+	var endYear = 2023;
 
-  const startSeason = new Season(startYear);
-  const endSeason = new Season(endYear);
-  const country: Countries = enumFromValue(countryName, Countries);
+	const startSeason = new Season(startYear);
+	const endSeason = new Season(endYear);
+	const countries: Array<Countries> = Object.values(Countries);
+	// const countries: Array<Countries> = [Countries.PORTUGAL]
+	console.info("Scrapping data for seasons %s -> %s", startSeason.toString(), endSeason.toString());
+	console.info("Countries =====");
+	for (var c of countries) {
+		console.info(c);
+	}
+	console.info("===============");
 
-  var playerSet = await bfsWalk(
+	await bfsWalk(
 			baseUrl, 
 			startSeason, 
 			endSeason,
-			[country],
+			countries,
 			playerCache,
 			launchBrowser,
 			scrapeTeams,
 			launchTeamPage,
 			scrapePlayers);
-	for (var player of playerSet.values()) {
-		console.log(player);
-	}
+			
+	console.info("===============");		
+	console.info("Done!");
 })(); 
