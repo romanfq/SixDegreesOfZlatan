@@ -5,9 +5,9 @@ import * as readline from 'readline-sync';
 import { Countries, Season, Team, enumFromValue, Player } from "./types/data-structures.js"
 import { bfsWalk } from './traversal.js';
 import { PlayerCache } from './cache/fs-cache.js';
+import MersenneTwister from 'mersennetwister';
 
 const baseUrl = 'http://www.footballsquads.co.uk'
-
 
 async function launchBrowser() {
  // Launch the browser and open a new blank page
@@ -21,6 +21,8 @@ async function launchBrowser() {
 async function scrapeTeams(leaguePage: puppeteer.Page): Promise<{href: string, name: string}[]> {
 	// Set screen size
   await leaguePage.setViewport({width: 1080, height: 1024});
+
+  await delay(1000, 3000);
 
   const elements = await leaguePage.$$eval('div#main h5 a', e => {
     return e.map(
@@ -36,6 +38,9 @@ async function scrapeTeams(leaguePage: puppeteer.Page): Promise<{href: string, n
 }
 
 async function scrapePlayers(teamPage: puppeteer.Page): Promise<Array<Player>> {
+	
+	await delay(1000, 3000);
+
 	const players = await teamPage.evaluate(() => {
 		// The players table has 9 columns, and the 1st column is the number, the second the name
 		// If we put each cell one after the other, the player name is always
@@ -65,6 +70,24 @@ async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: s
 	const childPage = await browser.newPage();
   	await childPage.goto(teamPageUrl);
   	return childPage;
+}
+
+const generator = new MersenneTwister();
+
+const rand = (min: number, max: number): number => {
+	if (min > max) {
+	  throw new Error("Min > max");
+	}
+	return Math.floor(generator.random() * (max - min + 1) + min)
+}
+
+const delay = async (min: number, max: number): Promise<boolean> => {
+	return new Promise((resolve) => {
+		setTimeout(() => {
+			resolve(true);
+		}, 
+		rand(min, max));
+	});
 }
 
 (async () => {

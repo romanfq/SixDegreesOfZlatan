@@ -147,10 +147,8 @@ async function addScrappingJobForLeagueTeams(
     // find all the teams for that league on the
     // league's page
     const page = await browser.newPage();
-    // navigate to the the league url
     await page.goto(league.url(baseUrl));
 
-    // find teams
     const teams = await scrapeTeams(page);
 
     // add a scraping job for each team
@@ -159,7 +157,7 @@ async function addScrappingJobForLeagueTeams(
         queue.push(new ScrappingNode(league, false, team));
     }
 
-    // this node is used to "mark" the whole league as scrapped
+    // a scrapping job to "mark" the whole league as scrapped
     queue.push(new ScrappingNode(league, true));
 }
 

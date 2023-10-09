@@ -17,6 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "allowUnreachableCode": false,
     "moduleResolution":"node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   },
 
   "include": [
