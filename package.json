@@ -6,11 +6,13 @@
   "type": "module",
   "scripts": {
     "build": "tsc --outDir dist",
-    "scrapper": "tsc --outDir dist && cd dist && node scrapper.js"
+    "scrapper": "tsc --outDir dist && cd dist && node scrapper.js",
+    "zlatan": "tsc --outDir dist && cd dist && node zlatan.js"
   },
   "dependencies": {
     "csv": "^6.3.5",
     "csv-stringify": "^6.4.4",
+    "figlet": "^1.6.0",
     "mersennetwister": "^0.2.3",
     "puppeteer": "^21.3.7",
     "readline-sync": "^1.4.10"
