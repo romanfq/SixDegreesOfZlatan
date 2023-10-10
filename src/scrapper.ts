@@ -111,18 +111,7 @@ const delay = async (min: number, max: number): Promise<boolean> => {
 
 	const startSeason = new Season(startYear);
 	const endSeason = new Season(endYear);
-	//const countries: Array<Countries> = Object.values(Countries);
-	/*
-	ENGLAND="eng",
-    SPAIN="spain",
-    ITALY="italy",
-    FRANCE="france",
-    PORTUGAL="portugal",
-    NETHERLANDS="netherl",
-    USA="usa",
-    SWEDEN="sweden"
-	 */
-	const countries: Array<Countries> = [Countries.ENGLAND, Countries.SWEDEN, Countries.PORTUGAL];
+	const countries: Array<Countries> = Object.values(Countries);
 	console.info("Scrapping data for seasons %s -> %s", startSeason.toString(), endSeason.toString());
 	console.info("Countries =====");
 	for (var c of countries) {
