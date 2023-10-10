@@ -1,21 +1,36 @@
 import figlet from 'figlet';
 import blessed from 'blessed';
 
+import  { DataLoader } from './zlatan-data-loader.js';
+import { EventEmitter } from 'events';
+
 // Main screen object
 var screen = blessed.screen({
     smartCSR: true
 });
 
 (async () => {
+    
+    var eventBus = new EventEmitter();
+    var dataLoader = new DataLoader(eventBus);
+
     var widget = await displayIntroScreen();
 
-    var interval = setInterval(() => {
-        widget.progressBar.progress(20);
-        screen.render();
-    }, 500);
+    var dirCountLoader = 0;
+    eventBus
+        .on('loader:dir-count', (dirCount) => {
+            dirCountLoader = dirCount;
+        })
+        .on('loader:message', (msg) => {
+            widget.loadingText.setContent(msg);
+        })
+        .on('loader:dir-progress', (newDirCount) => {
+            var percentage = Math.floor(100 * newDirCount / dirCountLoader);
+            widget.progressBar.setProgress(percentage);
+            screen.render();
+        });
 
     widget.progressBar.on('complete', (e) => {
-        clearInterval(interval);
         widget.loadingText.setContent("Loaded, press [Space] to continue");
 
         widget.box.onceKey(['space'], function(ch, key) {
@@ -36,6 +51,7 @@ var screen = blessed.screen({
         screen.render();
     });
 
+    await dataLoader.loadGameData();
 })();
 
 async function displayIntroScreen() {

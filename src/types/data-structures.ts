@@ -111,9 +111,13 @@ export enum Countries {
 }
 
 export const enumFromValue = <T extends Record<string, string>>(val: string, _enum: T) => {
+    return _enum[enumNameFromValue(val, _enum)]
+}
+
+export const enumNameFromValue = <T extends Record<string, string>>(val: string, _enum: T) => {
     const enumName = (Object.keys(_enum) as Array<keyof T>).find(k => _enum[k] === val)
-    if (!enumName) throw Error() // here fail fast as an example
-    return _enum[enumName]
+    if (!enumName) throw Error(`Cannot find ${val} in ${_enum}`) // here fail fast as an example
+    return enumName;
 }
 
 /**
