@@ -72,11 +72,9 @@ async function scrapePlayers(teamPage: puppeteer.Page): Promise<Array<Player>> {
 	const NameColIndex = 1;
 	const DobColIndex = 5;
 
-	var result = playersTable
+	return playersTable
 			.filter(row => row[NameColIndex] !== '')
 			.map(row => new Player(row[NameColIndex], row[DobColIndex]));
-	console.log(result);
-	return result;
 }
 
 async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: string) {
@@ -109,12 +107,22 @@ const delay = async (min: number, max: number): Promise<boolean> => {
 	await playerCache.init();
 
 	var startYear = 1999;
-	var endYear = 2000;
+	var endYear = 2023;
 
 	const startSeason = new Season(startYear);
 	const endSeason = new Season(endYear);
-	// const countries: Array<Countries> = Object.values(Countries);
-	const countries: Array<Countries> = [Countries.ENGLAND];
+	//const countries: Array<Countries> = Object.values(Countries);
+	/*
+	ENGLAND="eng",
+    SPAIN="spain",
+    ITALY="italy",
+    FRANCE="france",
+    PORTUGAL="portugal",
+    NETHERLANDS="netherl",
+    USA="usa",
+    SWEDEN="sweden"
+	 */
+	const countries: Array<Countries> = [Countries.ENGLAND, Countries.SWEDEN, Countries.PORTUGAL];
 	console.info("Scrapping data for seasons %s -> %s", startSeason.toString(), endSeason.toString());
 	console.info("Countries =====");
 	for (var c of countries) {

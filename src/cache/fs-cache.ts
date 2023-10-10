@@ -43,10 +43,10 @@ export class PlayerCache {
     public async store(team: Team, players: Array<Player>) {
         const teamDataFile = path.join(this.teamPath(team), this.teamDataFileName);
         const writableStream = createWriteStream(teamDataFile);
-        const columns = ["id", "name"];
+        const columns = ["id", "name", "dob"];
         const stringifier = stringify({ header: true, columns: columns });
         for (var player of players) {
-            stringifier.write([player.identifier, player.name]);
+            stringifier.write([player.identifier, player.name, player.dob]);
         }
         stringifier.pipe(writableStream);
     }
@@ -64,10 +64,7 @@ export class PlayerCache {
     }
 
     private async initDir(dirPath: string) {
-        const directory = await mkdir(dirPath, {recursive: true});
-        if (directory !== undefined) {
-            console.info("Created dir: %s", directory);
-        }
+        await mkdir(dirPath, {recursive: true});
     }
 
     private leaguePath(league: League): string {
@@ -75,8 +72,9 @@ export class PlayerCache {
     }
 
     private teamPath(team: Team): string {
-        var teamPath = path.join(this.leaguePath(team.league), team.name.replace(/\s/g, '-').replace(/\//g,'-'));
-        console.log(teamPath);
-        return teamPath;
+        return path.join(
+            this.leaguePath(team.league), 
+            team.name.replace(/\s/g, '-').replace(/\//g,'-')
+        );
     }
 }

@@ -164,7 +164,12 @@ async function addScrappingJobForLeagueTeams(
 function pushSeasonScrapingNode(season: Season, countries: Array<Countries>, queue: Array<ScrappingNode>) {
     console.log("Adding scrapping job for [%s] for season: %s", countries.toString(), season.toString());
     countries.forEach(country => {
-        getLeagues(country, season).forEach(league => {
+        var leagues = getLeagues(country, season);
+        if (leagues.length === 0) {
+            console.warn("There was no league on season %s in %s", season.toString(), country);
+            return;
+        }
+        leagues.forEach(league => {
             queue.push(new ScrappingNode(league));
         });
     });
