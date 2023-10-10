@@ -10,6 +10,7 @@
     "zlatan": "tsc --outDir dist && cd dist && node zlatan.js"
   },
   "dependencies": {
+    "blessed": "^0.1.81",
     "csv": "^6.3.5",
     "csv-stringify": "^6.4.4",
     "figlet": "^1.6.0",
