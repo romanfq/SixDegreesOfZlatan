@@ -37,31 +37,46 @@ async function scrapeTeams(leaguePage: puppeteer.Page): Promise<{href: string, n
 }
 
 async function scrapePlayers(teamPage: puppeteer.Page): Promise<Array<Player>> {
-	
 	await delay(1000, 3000);
 
-	const players = await teamPage.evaluate(() => {
-		// The players table has 9 columns, and the 1st column is the number, the second the name
+	const playersTable = await teamPage.evaluate(() => {
+		// The players table has N columns, and the 1st column is the number, the second the name
+		// The 5th is the DOB
+		// The value of N depends on the league. N=9 usually, but then you get other countries
+		// where N=8 (e.g. Portugal)
 		// If we put each cell one after the other, the player name is always
-		// at index 9k + 1
+		// at index Nk + 1
 		// However, the table is divided in two sections. The last section
 		// has a single row with the text "Players no longer at this club"
 		// and those rows can be ignored
-		const tds = document.querySelectorAll('div#main table tbody td');
-		const secondSectionIndex = Array.from(tds).findIndex(function(e) { 
-			return (e as HTMLElement).innerText === 'Players no longer at this club';
+		const trs = document.querySelectorAll('div#main table tbody tr');
+		var tableArray = [];
+		var secondSectionIndex = 1000;
+		trs.forEach((tr, rowIndex) => {
+			if (rowIndex > 0 && rowIndex < secondSectionIndex) {
+				const tds = tr.querySelectorAll('td');
+				var thisRow = [];
+				if (tds.length == 1 && tds[0].innerText === 'Players no longer at this club') {
+					secondSectionIndex = rowIndex;
+					return;
+				}
+				tds.forEach((td) => {
+					thisRow.push(td.innerText);
+				});
+				tableArray.push(thisRow);
+			}
 		});
-		console.log(secondSectionIndex);
-		return Array.from(tds)
-				.map((td) => td as HTMLElement)
-				.filter((_, index) => index > 1 && index % 9 === 1 && index < secondSectionIndex)
-				.filter(td => td.innerText.trim() !== '')
-				.map((td,_) => {
-						return td.innerText;
-					});	
+		return tableArray;
 	});
-	
-	return players.map(name => new Player(name));
+
+	const NameColIndex = 1;
+	const DobColIndex = 5;
+
+	var result = playersTable
+			.filter(row => row[NameColIndex] !== '')
+			.map(row => new Player(row[NameColIndex], row[DobColIndex]));
+	console.log(result);
+	return result;
 }
 
 async function launchTeamPage(browser: puppeteer.Browser, team: Team, baseUrl: string) {
@@ -94,12 +109,12 @@ const delay = async (min: number, max: number): Promise<boolean> => {
 	await playerCache.init();
 
 	var startYear = 1999;
-	var endYear = 2023;
+	var endYear = 2000;
 
 	const startSeason = new Season(startYear);
 	const endSeason = new Season(endYear);
-	const countries: Array<Countries> = Object.values(Countries);
-	// const countries: Array<Countries> = [Countries.PORTUGAL]
+	// const countries: Array<Countries> = Object.values(Countries);
+	const countries: Array<Countries> = [Countries.ENGLAND];
 	console.info("Scrapping data for seasons %s -> %s", startSeason.toString(), endSeason.toString());
 	console.info("Countries =====");
 	for (var c of countries) {
@@ -117,7 +132,7 @@ const delay = async (min: number, max: number): Promise<boolean> => {
 			scrapeTeams,
 			launchTeamPage,
 			scrapePlayers);
-			
+
 	console.info("===============");		
 	console.info("Done!");
 })(); 

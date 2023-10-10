@@ -104,6 +104,7 @@ export enum Countries {
     SPAIN="spain",
     ITALY="italy",
     FRANCE="france",
+    PORTUGAL="portugal",
     NETHERLANDS="netherl",
     USA="usa",
     SWEDEN="sweden"
@@ -158,7 +159,7 @@ export enum LeagueNames {
     BRAZIL_SERIE_A="bracamp",
 
     // USA
-    MLS="usamsl",
+    MLS="usamls",
 
     // Mexico
     MEXICO_APERTURA="mexaper",
@@ -177,7 +178,8 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
         [Countries.FRANCE, 1998],
         [Countries.NETHERLANDS, 2001],
         [Countries.USA, 2001],
-        [Countries.SWEDEN, 2005]
+        [Countries.SWEDEN, 2005],
+        [Countries.PORTUGAL,2001]
     ]);
 
     if (leaguesStart.get(country) > season.startYear) {
@@ -188,7 +190,9 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
     var nameChanges = new Map<[Countries, number], string>([
         [[Countries.ENGLAND, 2018], "faprem"],
         [[Countries.FRANCE, 2002], "fradiv1"],
-        [[Countries.NETHERLANDS, 2011], "holere"]
+        [[Countries.NETHERLANDS, 2011], "holere"],
+        [[Countries.USA, 2017], "usamsl"],
+        [[Countries.PORTUGAL, 2012], "porsuper"]
     ]);
 
     for (var [[changedCountry, thresholdYear], newName] of nameChanges.entries()) {
@@ -203,9 +207,9 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
         [Countries.ITALY]: [LeagueNames.SERIE_A],
         [Countries.FRANCE]: [LeagueNames.LEAGUE_ONE],
         [Countries.NETHERLANDS]: [LeagueNames.EREDIVISIE],
-        
         [Countries.USA]: [LeagueNames.MLS],
-        [Countries.SWEDEN]: []
+        [Countries.SWEDEN]: [LeagueNames.SWEDEN_SWEDALLS],
+        [Countries.PORTUGAL]: [LeagueNames.PRIMEIRA_LIGA]
     }
 
     // Some leagues use a single-year season nomenclature (e.g. MLS)
@@ -221,17 +225,23 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
 
 export class Player {
     private readonly _name: string;
+    private readonly _dob: string;
     private readonly _id: string | number;
     private readonly _teams: Array<Team>;
 
-    constructor(name: string) {
+    constructor(name: string, dob: string) {
         this._name = name;
-        this._id = this.hashFnv32a(name, true);
+        this._dob = dob;
+        this._id = this.hashFnv32a(`${name}|${dob}`, true);
         this._teams = new Array();
     }
     
     public get name() : string {
         return this._name;
+    }
+
+    public get dob() : string {
+        return this._dob;
     }
 
     public get identifier(): string | number {
