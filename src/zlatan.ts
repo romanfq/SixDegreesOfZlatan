@@ -2,12 +2,16 @@ import figlet from 'figlet';
 import blessed from 'blessed';
 
 import  { DataLoader } from './zlatan-data-loader.js';
+import { GameGraph } from './types/game-graph.js'
 import { EventEmitter } from 'events';
+import { League, Player, Team, Countries, Season } from './types/data-structures.js';
 
 // Main screen object
 var screen = blessed.screen({
     smartCSR: true
 });
+
+let gameGraph: GameGraph;
 
 (async () => {
     
@@ -23,6 +27,7 @@ var screen = blessed.screen({
         })
         .on('loader:message', (msg) => {
             widget.loadingText.setContent(msg);
+            screen.render();
         })
         .on('loader:dir-progress', (newDirCount) => {
             var percentage = Math.floor(100 * newDirCount / dirCountLoader);
@@ -46,12 +51,23 @@ var screen = blessed.screen({
 
             widget.box.remove(widget.progressBar);
             screen.render();
+
+            const teams = gameGraph.findTeams(new Player("Zlatan Ibrahimovic", "03-10-81"));
+            for (const t of teams) {
+                console.info(t.identifier);
+            }
+
+            const league = new League(Countries.ENGLAND, "engprem", new Season(2008));
+            const players = gameGraph.findPlayers(new Team(league, "Manchester-United"));
+            for (const p of players) {
+                console.info(p.identifier);
+            }
         });
 
         screen.render();
     });
 
-    await dataLoader.loadGameData();
+    gameGraph = await dataLoader.loadGameData();
 })();
 
 async function displayIntroScreen() {
