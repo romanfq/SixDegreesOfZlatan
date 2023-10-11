@@ -1,17 +1,19 @@
 import figlet from 'figlet';
 import blessed from 'blessed';
+import { Element } from 'blessed/lib/widgets/Element';
 
-import  { DataLoader } from './zlatan-data-loader.js';
-import { GameGraph } from './types/game-graph.js'
 import { EventEmitter } from 'events';
-import { League, Player, Team, Countries, Season } from './types/data-structures.js';
+import  { DataLoader } from './zlatan-data-loader.js';
+
+// import { GameGraph } from './types/game-graph.js'
+// import { League, Player, Team, Countries, Season } from './types/data-structures.js';
 
 // Main screen object
 var screen = blessed.screen({
     smartCSR: true
 });
 
-let gameGraph: GameGraph;
+// let gameGraph: GameGraph;
 
 (async () => {
     
@@ -50,24 +52,15 @@ let gameGraph: GameGraph;
             widget.loadingText.top = widget.box.top + 6;
 
             widget.box.remove(widget.progressBar);
+        
+            createGameTextBox(widget);
             screen.render();
-
-            const teams = gameGraph.findTeams(new Player("Zlatan Ibrahimovic", "03-10-81"));
-            for (const t of teams) {
-                console.info(t.identifier);
-            }
-
-            const league = new League(Countries.ENGLAND, "engprem", new Season(2008));
-            const players = gameGraph.findPlayers(new Team(league, "Manchester-United"));
-            for (const p of players) {
-                console.info(p.identifier);
-            }
         });
 
         screen.render();
     });
 
-    gameGraph = await dataLoader.loadGameData();
+    await dataLoader.loadGameData();
 })();
 
 async function displayIntroScreen() {
@@ -90,7 +83,8 @@ async function displayIntroScreen() {
             border: {
                 fg: 'green'
             }
-        }
+        },
+        padding: 1
     });
 
     var progressBar = blessed.progressbar({
@@ -135,22 +129,92 @@ async function displayIntroScreen() {
         return process.exit(0);
     });
 
-    figlet("6 degrees of Zlatan!", (err, data) => {
-        if (err) {
-            console.log("Could not run figlet!");
-            console.dir(err);
-            return;
-        }
-        
-        box.setContent(data);
-        screen.render();
-   });
+    bigText("6 degrees of Zlatan!", box);
 
-   var widget = {
+    var widget = {
         box: box,
         loadingText: loadingText,
         progressBar: progressBar 
     };
 
    return widget;
+}
+
+function createGameTextBox(widget) {
+    let inputBox = blessed.box({
+        parent: widget.box,
+        top: widget.box.top + 10,
+        left: 0,
+        padding: 5,
+        height: 10,
+        valign: 'middle',
+        align: 'center',
+        border: {
+            type: 'line'
+        },
+        style: {
+            fg: 'green',
+            bg: 'black',
+            border: {
+                fg: 'green'
+            }
+        }
+    });
+    let textInput = blessed.textbox({
+        parent: inputBox,
+        content: '',
+        left: 75,
+        top: -5,
+        width: '60%',
+        height: 7,
+        border: 'line',
+        style: {
+            fg: 'yellow',
+            bg: 'default',
+            bar: {
+              bg: 'default',
+              fg: 'yellow'
+            },
+            border: {
+              fg: 'default',
+              bg: 'default'
+            }
+        }
+    });
+    textInput.on('focus', function() {
+        textInput.readInput();
+    });
+    textInput.on('submit', (ch, key) => {
+        startSearch(textInput.value, widget);
+    });
+    textInput.focus();
+
+    let label = blessed.text({
+        parent: inputBox,
+        top: -3,
+        style: {
+            fg: 'yellow',
+            bg: 'black'
+        }
+    });
+    bigText("What player?",  label);
+    return inputBox;
+}
+
+function bigText(str: string, widget: Element) {
+    figlet(str, (err, data) => {
+        if (err) {
+            console.log("Could not run figlet!");
+            console.dir(err);
+            return;
+        }
+        
+        widget.setContent(data);
+        screen.render();
+    });
+}
+
+function startSearch(playerName: string, widget) {
+   widget.box.setLabel(`Finding ${playerName}`);
+   screen.render();
 }
