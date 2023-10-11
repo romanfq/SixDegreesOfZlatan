@@ -142,8 +142,6 @@ async function addScrappingJobForLeagueTeams(
         return;
     }
 
-    const season = league.season;
-
     // find all the teams for that league on the
     // league's page
     const page = await browser.newPage();
@@ -153,7 +151,7 @@ async function addScrappingJobForLeagueTeams(
 
     // add a scraping job for each team
     for (var teamData of teams) {
-        const team = new Team(league, season, teamData.name, teamData.href);
+        const team = new Team(league, teamData.name, teamData.href);
         queue.push(new ScrappingNode(league, false, team));
     }
 
@@ -162,7 +160,6 @@ async function addScrappingJobForLeagueTeams(
 }
 
 function pushSeasonScrapingNode(season: Season, countries: Array<Countries>, queue: Array<ScrappingNode>) {
-    console.log("Adding scrapping job for [%s] for season: %s", countries.toString(), season.toString());
     countries.forEach(country => {
         var leagues = getLeagues(country, season);
         if (leagues.length === 0) {
@@ -170,6 +167,7 @@ function pushSeasonScrapingNode(season: Season, countries: Array<Countries>, que
             return;
         }
         leagues.forEach(league => {
+            console.log("Adding scrapping job for [%s] for season: %s", country.toString(), league.season.toString());
             queue.push(new ScrappingNode(league));
         });
     });

@@ -7,6 +7,17 @@ export class Season {
         this._isSingleYearSeason = isSingleYearSeason;
     }
 
+    public static parse(val: string): Season {
+        var dashIndex = val.indexOf("-");
+        if (dashIndex > 0) {
+            var year = parseInt(val.substring(0, dashIndex));
+            return new Season(year, false);
+        } else {
+            var year = parseInt(val);
+            return new Season(year, true);
+        }
+    }
+
     public get startYear() : number {
         return this._startYear;
     }
@@ -61,21 +72,19 @@ export class League {
 
 export class Team {
     private readonly _league: League;
-    private readonly _season: Season;
     private readonly _teamName: string;
-    private readonly _teamHref: string;
-    private readonly _players: Array<Player>;
+    private readonly _teamHref?: string;
+    private readonly _players: Map<string, Player>;
 
-    constructor(league: League, season: Season, teamName: string, teamHref: string) {
+    constructor(league: League, teamName: string, teamHref?: string) {
         this._league = league;
-        this._season = season;
         this._teamName = teamName;
         this._teamHref = teamHref;
-        this._players = new Array();
+        this._players = new Map();
     }
 
     public url(baseUrl: string): string {
-        return baseUrl + "/" + this._league.country + "/" + this._season.toString() + "/" + this._teamHref;
+        return baseUrl + "/" + this._league.country + "/" + this.season.toString() + "/" + this._teamHref;
     }
 
     public toString() {
@@ -87,15 +96,21 @@ export class Team {
     }
 
     public get season() : Season {
-        return this._season;
+        return this.league.season;
     }
 
     public get name() : string {
         return this._teamName;
-    }    
+    }
+    
+    public get identifier(): string {
+        return `${this.name}/${this.season.toString()}`;
+    }
     
     public add(player: Player) {
-        this._players.push(player);
+        if (!this._players.has(player.identifier)) {
+            this._players.set(player.identifier, player);
+        }
     }
 }
 
@@ -106,6 +121,7 @@ export enum Countries {
     FRANCE="france",
     PORTUGAL="portugal",
     NETHERLANDS="netherl",
+    HOLLAND="holland",
     USA="usa",
     SWEDEN="sweden"
 }
@@ -143,6 +159,7 @@ export enum LeagueNames {
 
     // Netherlands
     EREDIVISIE="nethere",
+    HOLEREDIVISIE="holere",
 
     // Scotland
     SCOTTISH_PREMIERSHIP="scotsp",
@@ -174,27 +191,41 @@ export enum LeagueNames {
 }
 
 export function getLeagues(country: Countries, season: Season): Array<League> {
-    // leagues started at different moments
-    var leaguesStart = new Map<Countries, number>([
-        [Countries.ENGLAND, 1993],
-        [Countries.SPAIN, 1995],
-        [Countries.ITALY, 1995],
-        [Countries.FRANCE, 1998],
-        [Countries.NETHERLANDS, 2001],
-        [Countries.USA, 2001],
-        [Countries.SWEDEN, 2005],
-        [Countries.PORTUGAL,2001]
+    // Leagues periods are different. For instance, the Eredivisie was played under "Holland" from 2001-2010,
+    // and with the country name change, under Netherlands. The English leagues predate those dates
+
+    // We store a tuple for the league period. A value of undefined means that we don't know
+    // when the league will cease to be
+    var leaguesPeriods = new Map<Countries, [number, number]>([
+        [Countries.ENGLAND, [1993, undefined]],
+        [Countries.SPAIN, [1995, undefined]],
+        [Countries.ITALY, [1995, undefined]],
+        [Countries.FRANCE, [1998, undefined]],
+        [Countries.HOLLAND, [2001, 2010]],
+        [Countries.NETHERLANDS, [2011,undefined]],
+        [Countries.USA, [2001,undefined]],
+        [Countries.SWEDEN, [2005, undefined]],
+        [Countries.PORTUGAL, [2001, undefined]]
     ]);
 
-    if (leaguesStart.get(country) > season.startYear) {
+    const [leagueStart, leagueEnd] = leaguesPeriods.get(country);
+    if ((leagueStart !== undefined && leagueStart > season.startYear) || 
+        (leagueEnd !== undefined && leagueEnd < season.startYear)) {
         return [];
+    }
+
+    // Some leagues use a single-year season nomenclature (e.g. MLS)
+    switch(country) {
+        case Countries.USA:
+        case Countries.SWEDEN:
+            season = season.asSingleYearSeason();
+            break;
     }
 
     // there's a change of name in footballsquads.co.uk :-(
     var nameChanges = new Map<[Countries, number], string>([
         [[Countries.ENGLAND, 2018], "faprem"],
         [[Countries.FRANCE, 2002], "fradiv1"],
-        [[Countries.NETHERLANDS, 2011], "holere"],
         [[Countries.USA, 2017], "usamsl"],
         [[Countries.PORTUGAL, 2012], "porsuper"]
     ]);
@@ -211,33 +242,25 @@ export function getLeagues(country: Countries, season: Season): Array<League> {
         [Countries.ITALY]: [LeagueNames.SERIE_A],
         [Countries.FRANCE]: [LeagueNames.LEAGUE_ONE],
         [Countries.NETHERLANDS]: [LeagueNames.EREDIVISIE],
+        [Countries.HOLLAND]: [LeagueNames.HOLEREDIVISIE],
         [Countries.USA]: [LeagueNames.MLS],
         [Countries.SWEDEN]: [LeagueNames.SWEDEN_SWEDALLS],
         [Countries.PORTUGAL]: [LeagueNames.PRIMEIRA_LIGA]
     }
-
-    // Some leagues use a single-year season nomenclature (e.g. MLS)
-    switch(country) {
-        case Countries.USA:
-        case Countries.SWEDEN:
-            season = season.asSingleYearSeason();
-            break;
-    }
-
     return countryToLeagueName[country].map(l => new League(country, l, season));
 }
 
 export class Player {
     private readonly _name: string;
     private readonly _dob: string;
-    private readonly _id: string | number;
-    private readonly _teams: Array<Team>;
+    private readonly _id: string;
+    private readonly _teams: Map<string, Team>;
 
-    constructor(name: string, dob: string) {
+    constructor(name: string, dob: string, id?: string) {
         this._name = name;
         this._dob = dob;
-        this._id = this.hashFnv32a(`${name}|${dob}`, true);
-        this._teams = new Array();
+        this._id = id ?? this.hashFnv32a(`${name}|${dob}`);
+        this._teams = new Map();
     }
     
     public get name() : string {
@@ -248,17 +271,23 @@ export class Player {
         return this._dob;
     }
 
-    public get identifier(): string | number {
+    public get identifier(): string {
         return this._id;
     }
     
-    public addTeam(t: Team) {
-        this._teams.push(t);
-        t.add(this);
-    }
-    
     public get teams() : Array<Team> {
-        return this._teams;
+        return Array.from(this._teams.values());
+    }
+
+    public isInTeam(t: Team) {
+        return this._teams.has(t.identifier);
+    }
+
+    public addTeam(t: Team) {
+        if (!this._teams.has(t.identifier)) {
+            this._teams.set(t.identifier, t);
+        }
+        t.add(this);
     }
 
     /**
@@ -272,7 +301,7 @@ export class Player {
      * @param {integer} [seed] optionally pass the hash of the previous chunk
      * @returns {integer | string}
      */
-    private hashFnv32a(str, asString, seed=0x811c9dc5) {
+    private hashFnv32a(str, seed=0x811c9dc5): string {
         /*jshint bitwise:false */
         var i, l,
             hval = seed;
@@ -281,11 +310,9 @@ export class Player {
             hval ^= str.charCodeAt(i);
             hval += (hval << 1) + (hval << 4) + (hval << 7) + (hval << 8) + (hval << 24);
         }
-        if( asString ){
-            // Convert to 8 digit hex string
-            return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
-        }
-        return hval >>> 0;
+        
+        // Convert to 8 digit hex string
+        return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
     }
 
     public toString() {
@@ -295,12 +322,22 @@ export class Player {
 
 export class PlayerSet {
 
-    private _items: Map<string | number, Player>;
+    private _items: Map<string, Player>;
+    private readonly _name: string;
 
-    constructor() {
-        this._items = new Map<string | number, Player>();
+    constructor(name?: string) {
+        this._items = new Map<string, Player>();
+        this._name = name;
     }
 
+    public get name() : string {
+        return this._name;
+    }
+
+    public get size(): number {
+        return this._items.size;
+    }
+    
     public add(player: Player): Player {
         const id = player.identifier;
         var existingPlayer = this._items.get(id);
@@ -309,6 +346,20 @@ export class PlayerSet {
             return player;
         }
         return existingPlayer;
+    }
+
+    public findPlayer(id: string): Player {
+        return this._items.get(id);
+    }
+
+    public findPlayersInTeam(t: Team): Array<Player> {
+        const result = new Array();
+        for (const p of this.values()) {
+            if (p.isInTeam(t)) {
+                result.push(p);
+            }
+        }
+        return result;
     }
 
     public values(): IterableIterator<Player> {

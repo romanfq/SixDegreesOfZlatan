@@ -38,6 +38,7 @@ export class DataLoader {
         this.emit('loader:message', 'Done');
         this.emit('loader:dir-progress', countryDirs.length);
     }
+}
 
     private emit(eventName: string, payload: any) {
         this._eventBus.emit(eventName, payload);
