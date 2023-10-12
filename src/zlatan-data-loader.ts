@@ -19,8 +19,8 @@ class EventProducer {
     constructor (eventBus: EventEmitter) {
         this._eventBus = eventBus;
     }
-    public emit(eventName: string, payload: any) {
-        this._eventBus.emit(eventName, payload);
+    public emit(eventName: string, ...payload: any[]) {
+        this._eventBus.emit(eventName, ...payload);
     }
 }
 
@@ -39,23 +39,25 @@ export class DataLoader extends EventProducer {
         const countryDirs = await readdir(this.CACHE_BASE_DIR);
         this.emit('loader:dir-count', countryDirs.length);
 
-        var loadedDirs = 0;
-        let playerSets = new Array();
+        let loadedDirs = 0;
+        let gameGraph = new GameGraph();
+
         for (const dir of countryDirs) {
             var countryDirPath = path.join(this.CACHE_BASE_DIR, dir)
             const stats = await stat(countryDirPath);
             if (stats.isDirectory()) {
 
                 var countryName = enumNameFromValue(dir, Countries);
-                var countryPlayerSets: Array<PlayerSet> = await this._countryDirLoader.loadDir(countryName, countryDirPath);
-                playerSets = playerSets.concat(countryPlayerSets);
+                await this._countryDirLoader.loadDir(countryName, countryDirPath, gameGraph);
 
                 loadedDirs += 1;
                 this.emit('loader:dir-progress', loadedDirs);
             }
         }
+
         this.emit('loader:dir-progress', countryDirs.length);
-        return new GameGraph(playerSets);
+        this.emit('loader:done');
+        return gameGraph;
     }
 }
 
@@ -68,9 +70,7 @@ class CountryDirectoryLoader extends EventProducer {
         this._leagueDirectoryLoader = new LeagueDirectoryLoader(eventEmitter);
     }
 
-    public async loadDir(countryName: string, countryDir: string): Promise<PlayerSet[]> {
-        let loadResult = new Array<PlayerSet>();
-        
+    public async loadDir(countryName: string, countryDir: string, gameGraph: GameGraph): Promise<void> {
         var country = Countries[countryName];
         var seasons = await readdir(countryDir);
         for (var s of seasons) {
@@ -78,11 +78,8 @@ class CountryDirectoryLoader extends EventProducer {
             
             var season = Season.parse(s);
             var leagues: Array<League> = getLeagues(country, season);
-            var leaguePlayers = await this._leagueDirectoryLoader.loadLeagues(countryDir, leagues);
-            loadResult = loadResult.concat(leaguePlayers);
-            
+            await this._leagueDirectoryLoader.loadLeagues(countryDir, leagues, gameGraph);
         }
-        return loadResult;
     }
 }
 
@@ -95,10 +92,10 @@ class LeagueDirectoryLoader extends EventProducer {
         this._playerSetLoader = new PlayerSetLoader(eventEmitter);
     }
 
-    public async loadLeagues(countryDir: string, leagues: Array<League>): Promise<PlayerSet[]> {
-        
-        var teamLoaderPromises = new Array<Promise<PlayerSet>>();
-
+    public async loadLeagues(
+                    countryDir: string, 
+                    leagues: Array<League>, 
+                    gameGraph: GameGraph): Promise<void> {
         for (var league of leagues) {
             var leagueDir = path.join(countryDir, league.season.toString(), league.name);
             var teams = await readdir(leagueDir);
@@ -108,14 +105,10 @@ class LeagueDirectoryLoader extends EventProducer {
                 const stats = await stat(teamDir);
                 if (stats.isDirectory()) {
                     var teamObj = new Team(league, teamName);
-                    teamLoaderPromises.push(this._playerSetLoader.loadPlayerSet(teamDir, teamObj));
+                    await this._playerSetLoader.loadPlayerSet(teamDir, teamObj, gameGraph);
                 }
             }
         }
-
-        const allLeaguePlayers: PlayerSet[] = await Promise.all(teamLoaderPromises);
-        let mergedResult = new Array<PlayerSet>();
-        return mergedResult.concat(allLeaguePlayers);
     }
 }
 
@@ -125,7 +118,10 @@ class PlayerSetLoader extends EventProducer {
         super(eventEmitter);
     }
 
-    public async loadPlayerSet(teamDir: string, team: Team): Promise<PlayerSet> {
+    public async loadPlayerSet(
+                        teamDir: string, 
+                        team: Team, 
+                        gameGraph: GameGraph): Promise<boolean> {
         const processFile = async () => {
             var result = new PlayerSet(teamDir);
             const parser = parse({columns: true});
@@ -145,11 +141,12 @@ class PlayerSetLoader extends EventProducer {
             return result;
         };
 
-        const result = await processFile();
-        for (var player of result.values()) {
+        const playerSet = await processFile();
+        for (var player of playerSet.values()) {
             player.addTeam(team);
         }
         
-        return result;
+        await gameGraph.add(playerSet);
+        return true;
     }
 }

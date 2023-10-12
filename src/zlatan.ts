@@ -5,7 +5,7 @@ import { Element } from 'blessed/lib/widgets/Element';
 import { EventEmitter } from 'events';
 import  { DataLoader } from './zlatan-data-loader.js';
 
-// import { GameGraph } from './types/game-graph.js'
+import { GameGraph } from './types/game-graph.js'
 // import { League, Player, Team, Countries, Season } from './types/data-structures.js';
 
 // Main screen object
@@ -13,7 +13,7 @@ var screen = blessed.screen({
     smartCSR: true
 });
 
-// let gameGraph: GameGraph;
+let gameGraph: GameGraph;
 
 (async () => {
     
@@ -35,32 +35,35 @@ var screen = blessed.screen({
             var percentage = Math.floor(100 * newDirCount / dirCountLoader);
             widget.progressBar.setProgress(percentage);
             screen.render();
-        });
-
-    widget.progressBar.on('complete', (e) => {
-        widget.loadingText.setContent("Loaded, press [Space] to continue");
-
-        widget.box.onceKey(['space'], function(ch, key) {
-            widget.box.width = '100%';
-            widget.box.height = '100%';
-            widget.box.align = 'left',
-            widget.box.valign = 'top',
-            widget.loadingText.left = 0;
-            widget.loadingText.width = '100%';
-            widget.loadingText.style.fg = 'green';
-            widget.loadingText.setContent(''.padStart(widget.box.width - 1, '-'));
-            widget.loadingText.top = widget.box.top + 6;
-
-            widget.box.remove(widget.progressBar);
-        
-            createGameTextBox(widget);
+        })
+        .on('game:indexing', () => {
+            widget.loadingText.setContent("Indexing players...please wait");
+            screen.render();
+        })
+        .on('loader:done', () => {
+            widget.loadingText.setContent("Loaded, press [Space] to continue");
+            
+            widget.box.onceKey(['space'], function(ch, key) {
+                widget.box.width = '100%';
+                widget.box.height = '100%';
+                widget.box.align = 'left',
+                widget.box.valign = 'top',
+                widget.loadingText.left = 0;
+                widget.loadingText.width = '100%';
+                widget.loadingText.style.fg = 'green';
+                widget.loadingText.setContent(''.padStart(widget.box.width - 1, '-'));
+                widget.loadingText.top = widget.box.top + 6;
+    
+                widget.box.remove(widget.progressBar);
+            
+                createGameTextBox(widget);
+                screen.render();
+            });
+    
             screen.render();
         });
 
-        screen.render();
-    });
-
-    await dataLoader.loadGameData();
+    gameGraph = await dataLoader.loadGameData();
 })();
 
 async function displayIntroScreen() {
@@ -185,7 +188,9 @@ function createGameTextBox(widget) {
         textInput.readInput();
     });
     textInput.on('submit', (ch, key) => {
-        startSearch(textInput.value, widget);
+        let playerName = textInput.value;
+        textInput.setValue('');
+        startSearch(playerName, widget, textInput);
     });
     textInput.focus();
 
@@ -214,7 +219,19 @@ function bigText(str: string, widget: Element) {
     });
 }
 
-function startSearch(playerName: string, widget) {
+function startSearch(playerName: string, widget, textInput) {
+   
    widget.box.setLabel(`Finding ${playerName}`);
    screen.render();
+
+   gameGraph.findPlayerByName(playerName).then(player => {
+       if (player === undefined) {
+         widget.box.setLabel(`Could not find player by name '${playerName}'`);
+       } else {
+        widget.box.setLabel(`Player found: ${player.identifier}: ${player.name}: (${player.dob})`);   
+       }
+       textInput.focus();
+       screen.render();
+   });
+  
 }
