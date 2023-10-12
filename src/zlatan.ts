@@ -6,14 +6,19 @@ import { EventEmitter } from 'events';
 import  { DataLoader } from './zlatan-data-loader.js';
 
 import { GameGraph } from './types/game-graph.js'
+import { Player } from './types/data-structures.js';
+import { Search } from './search.js';
+
 // import { League, Player, Team, Countries, Season } from './types/data-structures.js';
 
 // Main screen object
-var screen = blessed.screen({
+let screen = blessed.screen({
     smartCSR: true
 });
 
 let gameGraph: GameGraph;
+
+let zlatan: Player;
 
 (async () => {
     
@@ -64,6 +69,7 @@ let gameGraph: GameGraph;
         });
 
     gameGraph = await dataLoader.loadGameData();
+    zlatan = await gameGraph.findPlayerByName("Zlatan Ibrahimovic");
 })();
 
 async function displayIntroScreen() {
@@ -163,6 +169,17 @@ function createGameTextBox(widget) {
             }
         }
     });
+    
+    let label = blessed.text({
+        parent: inputBox,
+        top: -3,
+        style: {
+            fg: 'yellow',
+            bg: 'black'
+        }
+    });
+    bigText("What player?",  label);
+
     let textInput = blessed.textbox({
         parent: inputBox,
         content: '',
@@ -187,22 +204,18 @@ function createGameTextBox(widget) {
     textInput.on('focus', function() {
         textInput.readInput();
     });
+
     textInput.on('submit', (ch, key) => {
         let playerName = textInput.value;
         textInput.setValue('');
-        startSearch(playerName, widget, textInput);
+        startSearch(playerName, {
+            widget: widget,
+            textInput: textInput,
+            inputBox: inputBox,
+            label: label
+        });
     });
     textInput.focus();
-
-    let label = blessed.text({
-        parent: inputBox,
-        top: -3,
-        style: {
-            fg: 'yellow',
-            bg: 'black'
-        }
-    });
-    bigText("What player?",  label);
     return inputBox;
 }
 
@@ -219,19 +232,59 @@ function bigText(str: string, widget: Element) {
     });
 }
 
-function startSearch(playerName: string, widget, textInput) {
-   
-   widget.box.setLabel(`Finding ${playerName}`);
+function startSearch(playerName: string, gameWidget) {
+   let logger = createScreenLogger(gameWidget);
    screen.render();
 
    gameGraph.findPlayerByName(playerName).then(player => {
        if (player === undefined) {
-         widget.box.setLabel(`Could not find player by name '${playerName}'`);
+        logger.log(`Could not find player by name '${playerName}'`);
        } else {
-        widget.box.setLabel(`Player found: ${player.identifier}: ${player.name}: (${player.dob})`);   
+         logger.log('{bold}Player found: {/bold} %s', `${player.name}: ([${player.identifier}] -> ${player.dob})`);
+         
+         // local events for search
+         var searchEvents = new EventEmitter();
+         searchEvents.on('step', (msg) => {
+            setImmediate(() => {
+                logger.log(msg);
+                screen.render();
+            });
+         });
+
+         let search = new Search(searchEvents, gameGraph);
+         search.findPath(player, zlatan).then(playerPath => {
+            if (playerPath !== undefined && playerPath.size > 0) {
+                let str = playerPath.toString();
+                logger.log(str);
+             } else {
+                logger.log("No path found!");
+             }   
+         });
        }
-       textInput.focus();
+       gameWidget.textInput.focus();
        screen.render();
    });
-  
+}
+
+function createScreenLogger(gameWidget) {
+    let logger = blessed.log({
+        parent: gameWidget.inputBox,
+        top: gameWidget.label.top + gameWidget.label.height,
+        left: 0,
+        height: '100%',
+        border: 'line',
+        scrollback: 100,
+        tags: true,
+        scrollbar: {
+            ch: ' ',
+            track: {
+                bg: 'yellow'
+            },
+            style: {
+                inverse: true
+            }
+        }
+    });
+    logger.focus();
+    return logger;
 }

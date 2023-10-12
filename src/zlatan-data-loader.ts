@@ -9,20 +9,12 @@ import { finished } from 'stream/promises';
 
 import * as path from 'path/posix';
 
-import { EventEmitter } from 'events';
 import { Countries, PlayerSet, Season, League, Player, Team } from './types/data-structures.js';
 import { enumNameFromValue, getLeagues } from './types/data-structures.js';
 import { GameGraph } from './types/game-graph.js';
+import { EventProducer } from './eventProducer.js';
+import EventEmitter from "events";
 
-class EventProducer {
-    private readonly _eventBus: EventEmitter;
-    constructor (eventBus: EventEmitter) {
-        this._eventBus = eventBus;
-    }
-    public emit(eventName: string, ...payload: any[]) {
-        this._eventBus.emit(eventName, ...payload);
-    }
-}
 
 // import * as path from 'path/posix';
 export class DataLoader extends EventProducer {

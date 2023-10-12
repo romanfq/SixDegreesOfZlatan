@@ -315,8 +315,12 @@ export class Player {
         return ("0000000" + (hval >>> 0).toString(16)).substr(-8);
     }
 
+    public equals(other: Player) {
+        return this.identifier === other.identifier;
+    }
+
     public toString() {
-        return this.name + "(" + this.identifier + "). Teams: " + this.teams.toString();
+        return this.name;
     }
 }
 
