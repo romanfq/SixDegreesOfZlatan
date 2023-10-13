@@ -55,7 +55,6 @@ export class DataLoader extends EventProducer {
         }
 
         this.emit('loader:dir-progress', countryDirs.length);
-        this.emit('loader:done');
         return gameGraph;
     }
 }

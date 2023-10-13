@@ -53,14 +53,14 @@ export class GameGraph {
         return true;
     }
 
-    public findPlayerByName(name: string): Promise<Player> {
+    public findPlayersByName(name: string): Promise<Player[]> {
         return this._playerNameIndex
                         .searchAsync(name)
                         .then(searchResults => {
                             const players = searchResults
                                 .flatMap(searchResult => searchResult.result)
                                 .map(id => this._playersById.get(id as string))
-                            return players.length == 0 ? undefined : players[0];
+                            return players;
                         })
     }
 

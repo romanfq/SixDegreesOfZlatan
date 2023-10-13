@@ -13,7 +13,7 @@ let terminal = term.terminal;
 
 let progressBar: term.Terminal.ProgressBarController;
 let gameGraph: GameGraph;
-let zlatan: Player;
+let targetPlayer: Player;
 
 (async () => {
 
@@ -55,55 +55,78 @@ let zlatan: Player;
             var percentage = 1.0 * itemsLoaded / itemsToLoad;
             progressBar.update(percentage);
         })
-        .on('loader:done', () => {
+        .on('loader:done', async () => {
             askForInput();
         });
 
     gameGraph = await dataLoader.loadGameData();
-    zlatan = await gameGraph.findPlayerByName("Zlatan Ibrahimovic");
+    targetPlayer = (await gameGraph.findPlayersByName("Zlatan Ibrahimovic"))[0]
+    eventBus.emit('loader:done'); 
 })();
 
 function askForInput() {
     terminal('\n');
+    terminal('\n');
 
-    terminal.bold.cyan( 'Enter a player name to find his path to The Zlatan: ' ) ;
+    terminal.bold.cyan( `Enter a player name to find his path to ${targetPlayer.name}: ` ) ;
 
     terminal.inputField ((err, input) =>{
         terminal.green( "\nSearching for '%s'...\n" , input ) ;
-        startSearch(input);
+        searchPlayer(input, targetPlayer);
     });
 }
 
-function startSearch(playerName: string) {
-   gameGraph.findPlayerByName(playerName).then(player => {
-       if (player === undefined) {
-         terminal(`Could not find player by name '${playerName}' \n`);
-       } else {
-        terminal(`Player found: ${player.name}: ([${player.identifier}] -> ${player.dob}) \n`);
-         
-         // local events for search
-         var searchEvents = new EventEmitter();
-         searchEvents.on('step', (msg) => {
-            terminal.saveCursor();
-            terminal.moveTo.bgWhite.black(1, 1).eraseLine();
-            terminal(`${msg}\n`);
-            terminal.white.bgBlack();
-            terminal.restoreCursor();
-         });
+async function searchPlayer(playerName: string, targetPlayer: Player): Promise<void> {
+   let players = await gameGraph.findPlayersByName(playerName);
+   
+    if (players.length == 0) {
+        terminal(`Could not find any player by name '${playerName}' \n`);
+        askForInput();
+        return;
+    }
 
-         let search = new Search(searchEvents, gameGraph);
-         search.findPath(player, zlatan).then(playerPath => {
-            if (playerPath !== undefined && playerPath.size > 0) {
-                let str = playerPath.toString();
-                terminal(str);
-             } else {
-                terminal("No path found! \n");
-             }       
-         });
-       }
-   }).then(() => {
-      askForInput();   
-   });
+    let fromPlayer: Player;
+    if (players.length > 1) {
+        terminal(`Players found: `);
+        let response = await terminal.singleLineMenu(players.map(p => p.name),
+            {
+                cancelable: true,
+                exitOnUnexpectedKey: true,
+                selectedStyle: terminal.red.bgWhite,
+                style: terminal.cyan
+            }
+        ).promise;
+        fromPlayer = players[response.selectedIndex];
+    } else {
+        fromPlayer = players[0];
+    }
+
+    terminal('\n');
+
+    // local events for search
+    var searchEvents = new EventEmitter();
+    searchEvents.on('step', (msg) => {
+        terminal.saveCursor();
+        terminal.moveTo.bgWhite.red(1, 1).eraseLine();
+        terminal.blink(`${msg}\n`);
+        terminal.red.bgWhite();
+        terminal.restoreCursor();
+    });
+
+    let search = new Search(searchEvents, gameGraph);
+
+    let playerPath = await search.findPath(fromPlayer, targetPlayer);    
+    if (playerPath !== undefined && playerPath.size > 0) {
+        let str = playerPath.toString();
+        let degree = (playerPath.size - 1)/2;
+        terminal(`${fromPlayer.name} has a ${targetPlayer.name} degree of ${degree} and here's the path:\n`)
+        await terminal.slowTyping(str, {
+            delay: 10
+        });   
+    } else {
+        terminal("No path found! \n");
+    }
+    askForInput(); 
 }
 
 
