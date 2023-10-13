@@ -20,7 +20,8 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "paths": {
-      "flexsearch": ["./node_modules/@types/flexsearch"]
+      "flexsearch": ["./node_modules/@types/flexsearch"],
+      "terminal-key": ["./node_modules/@types/terminal-kit"]
     }
   },
 
